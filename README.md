@@ -1,6 +1,10 @@
 # myrabbitmq
 Use RabbitMQ in golang.
 
+## Install RabbitMQ
+### Fedora: 见 `InstallRabbitMQ.md`
+
+
 ## Install
 ```
 go get github.com/gtlyy/myrabbitmq

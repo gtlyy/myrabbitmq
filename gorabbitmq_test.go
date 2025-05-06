@@ -69,7 +69,7 @@ func TestReceiveQueue(t *testing.T) {
 	select {}
 }
 
-// 测试：通用函数Send()
+// 测试：通用函数Send()，可配合上面的 TestReceiveQueue() 进行测试。
 func TestSendQueue(t *testing.T) {
 	exchange := ""
 	routing_key := "hello_queue" // queue_name
@@ -141,7 +141,7 @@ func TestSend2(t *testing.T) {
 	assert.True(t, err == nil)
 }
 
-// 测试：接受消息的通用写法3，实际是 queue
+// 测试：接受消息的通用写法3，实际是 queue 模式
 func TestReceive3(t *testing.T) {
 	// 第一步：
 	exchange := ""
@@ -168,13 +168,14 @@ func TestReceive3(t *testing.T) {
 // 测试：配合上面
 func TestSend3(t *testing.T) {
 	exchange := ""
-	routing_key := "queue3" // queue的时候，routing_key = queue_name
+	routing_key := "queue3" // queue 模式的时候，routing_key = queue_name
 	msg := "exchange=, routing_key=queue3"
 	err := rabbit.Send(exchange, routing_key, msg)
 	assert.True(t, err == nil)
 }
 
-// 测试：send：  ~/code/echarts/stomp1.html
+// git clone git@github.com:gtlyy/learnEcharts.git
+// 测试：send：  learnEcharts/stomp1.html
 func TestSendStomp1(t *testing.T) {
 	exchange := "amq.topic"
 	key := "echo"
@@ -186,7 +187,7 @@ func TestSendStomp1(t *testing.T) {
 	assert.True(t, err == nil)
 }
 
-// 测试：receive：  ~/code/echarts/stomp2.html
+// 测试：receive：  learnEcharts/stomp2.html
 func TestReceive4(t *testing.T) {
 	// 第一步：
 	exchange := "amq.topic"
@@ -210,7 +211,7 @@ func TestReceive4(t *testing.T) {
 	select {}
 }
 
-// 测试：send：  ~/code/echarts/stomp3.html
+// 测试：send：  learnEcharts/stomp3.html
 func TestSendStomp3(t *testing.T) {
 	exchange := "amq.topic"
 	key := "account"
@@ -228,7 +229,7 @@ func TestSendStomp3(t *testing.T) {
 	assert.True(t, err == nil)
 }
 
-// 测试：receive：  ~/code/echarts/stomp3.html
+// 测试：receive：  learnEcharts/stomp3.html
 func TestReceiveTradeReply(t *testing.T) {
 	// 第一步：
 	exchange := "amq.topic"
@@ -252,7 +253,7 @@ func TestReceiveTradeReply(t *testing.T) {
 	select {}
 }
 
-// 测试：send：  ~/code/echarts/lines-async-simple.html
+// 测试：send：  learnEcharts/lines-async-simple.html
 func TestSendLine(t *testing.T) {
 	exchange := "amq.topic"
 	routing_key := "priceAB"

@@ -1,23 +1,23 @@
 package myrabbitmq
 
 import (
+	"fmt"
 	"log"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-func OnError(err error, msg string) {
+// 错误处理函数
+func IfError(msg string, err error) {
 	if err != nil {
-		log.Fatalf("%s: %s", msg, err)
+		fmt.Printf("%s: %s\n", err, msg)
 	}
 }
 
 // 面向对象编程： ====================================================  Start
 type RabbitMqClass struct {
-	Conn *amqp.Connection
-	Ch   *amqp.Channel
-	// exchange    string
-	// routing_key string
+	Conn  *amqp.Connection
+	Ch    *amqp.Channel
 	Queue amqp.Queue
 }
 
@@ -25,13 +25,41 @@ type RabbitMqClass struct {
 func (rabbit *RabbitMqClass) Init(user string, passwd string, url string, port string) (err error) {
 	amqp_url := "amqp://" + user + ":" + passwd + "@" + url + ":" + port + "/"
 	rabbit.Conn, err = amqp.Dial(amqp_url)
-	OnError(err, "Failed to connect to RabbitMQ")
+	IfError("Failed to connect to RabbitMQ.", err)
 	rabbit.Ch, err = rabbit.Conn.Channel()
-	OnError(err, "Failed to open a channel")
+	IfError("Failed to open a channel.", err)
 	return
 }
 
-// 函数：创建 Exchange
+// 函数：配置  ;  实际上关键是 Bind
+func (rabbit *RabbitMqClass) Setup(exchange, exchange_type, routing_key, queue_name string) (err error) {
+	if queue_name == "" || rabbit.Queue.Name != queue_name {
+		err = rabbit.CreateQueue(queue_name)
+		IfError("In Setup(): Fail to create queue.", err)
+	}
+
+	// 不是默认的，或者 ""，就新建一个。
+	if exchange != "" && exchange != "amq.topic" && exchange != "amq.direct" && exchange != "amq.headers" &&
+		exchange != "amq.fanout" && exchange != "amq.match" && exchange != "amq.rabbitmq.trace" {
+		err = rabbit.CreateExchange(exchange, exchange_type)
+		IfError("In Setup(): Fail to create exchange.", err)
+	}
+
+	if exchange != "" {
+		err = rabbit.Ch.QueueBind(
+			rabbit.Queue.Name, // queue name
+			routing_key,       // routing key
+			exchange,          // exchange
+			false,             // no-wait
+			nil,               // args
+		)
+		IfError("In Setup(): Failed to bind a queue.", err)
+	}
+
+	return err
+}
+
+// 函数：快速创建 Exchange
 func (rabbit *RabbitMqClass) CreateExchange(xname, xtype string) (err error) {
 	log.Println("In CreateExchange().")
 	err = rabbit.Ch.ExchangeDeclare(
@@ -43,13 +71,12 @@ func (rabbit *RabbitMqClass) CreateExchange(xname, xtype string) (err error) {
 		false, // no-wait
 		nil,   // arguments
 	)
-	OnError(err, "In CreateExchange().")
+	IfError("In CreateExchange().", err)
 	return err
 }
 
-// 函数：创建Queue
+// 函数：快速创建Queue
 func (rabbit *RabbitMqClass) CreateQueue(queue_name string) error {
-	// log.Println("In CreateQueue1()")
 	var err error
 	rabbit.Queue, err = rabbit.Ch.QueueDeclare(
 		queue_name, // name
@@ -59,15 +86,12 @@ func (rabbit *RabbitMqClass) CreateQueue(queue_name string) error {
 		false,      // no-wait
 		nil,        // arguments
 	)
-	// log.Println(rabbit.Queue.Name)
-	OnError(err, "In CreateQueue().")
+	IfError("In CreateQueue().", err)
 	return err
 }
 
-// 函数：创建Queue
-// durable：持久化
-func (rabbit *RabbitMqClass) CreateQueue2(queue_name string, durable bool) error {
-	log.Println("In CreateQueue2()")
+// 函数：快速创建Queue。增加 durable （持久化）
+func (rabbit *RabbitMqClass) CreateQueueDurable(queue_name string, durable bool) error {
 	var err error
 	rabbit.Queue, err = rabbit.Ch.QueueDeclare(
 		queue_name, // name
@@ -77,14 +101,12 @@ func (rabbit *RabbitMqClass) CreateQueue2(queue_name string, durable bool) error
 		false,      // no-wait
 		nil,        // arguments
 	)
-	log.Println("Create Queue:", rabbit.Queue.Name)
-	OnError(err, "In CreateQueue2().")
+	IfError("In CreateQueueDurable().", err)
 	return err
 }
 
-// 函数：创建Queue ， 返回名字的版本
-func (rabbit *RabbitMqClass) CreateQueue3() (string, error) {
-	// log.Println("In CreateQueue3()")
+// 函数：不指定名字快速创建 Queue ，并返回随机 Queue 名字
+func (rabbit *RabbitMqClass) CreateQueueReturnName() (string, error) {
 	q, err := rabbit.Ch.QueueDeclare(
 		"",    // name
 		false, // durable
@@ -93,44 +115,13 @@ func (rabbit *RabbitMqClass) CreateQueue3() (string, error) {
 		false, // no-wait
 		nil,   // arguments
 	)
-	// log.Println("Create Queue 3:", q.Name)
-	OnError(err, "In CreateQueue3().")
+	IfError("In CreateQueueReturnName().", err)
 	return q.Name, err
-}
-
-// 函数：配置  ;  实际上是 Bind
-func (rabbit *RabbitMqClass) Setup(exchange, exchange_type, routing_key, queue_name string) (err error) {
-	if queue_name == "" || rabbit.Queue.Name != queue_name {
-		err = rabbit.CreateQueue(queue_name)
-		OnError(err, "In Setup():Fail to create queue.")
-	}
-
-	// 不是默认的，或者 ""，就新建一个。
-	if exchange != "" && exchange != "amq.topic" && exchange != "amq.direct" && exchange != "amq.headers" &&
-		exchange != "amq.fanout" && exchange != "amq.match" && exchange != "amq.rabbitmq.trace" {
-		err = rabbit.CreateExchange(exchange, exchange_type)
-		OnError(err, "In Setup():Fail to create exchange.")
-	}
-
-	if exchange != "" {
-		// 绑定
-		err = rabbit.Ch.QueueBind(
-			rabbit.Queue.Name, // queue name
-			routing_key,       // routing key
-			exchange,          // exchange
-			false,             // no-wait
-			nil,               // args
-		)
-		OnError(err, "In Setup(): Failed to bind a queue")
-	}
-
-	return err
 }
 
 // 函数：Bind
 func (rabbit *RabbitMqClass) Bind(exchange, exchange_type, routing_key, queue_name string) (err error) {
 	if exchange != "" {
-		// 绑定
 		err = rabbit.Ch.QueueBind(
 			queue_name,  // queue name
 			routing_key, // routing key
@@ -138,7 +129,7 @@ func (rabbit *RabbitMqClass) Bind(exchange, exchange_type, routing_key, queue_na
 			false,       // no-wait
 			nil,         // args
 		)
-		OnError(err, "In Bind(): Failed to bind a queue")
+		IfError("In Bind(): Failed to bind a queue.", err)
 	}
 	return err
 }
@@ -154,7 +145,7 @@ func (rabbit *RabbitMqClass) ReceiveQueue() (<-chan amqp.Delivery, error) {
 		false,             // no-wait
 		nil,               // args
 	)
-	OnError(err, "In ReceiveQueue().")
+	IfError("In ReceiveQueue().", err)
 	return msgs, err
 }
 
@@ -169,7 +160,7 @@ func (rabbit *RabbitMqClass) Receive(queue_name string, auto_ack bool) (<-chan a
 		false,      // no-wait
 		nil,        // args
 	)
-	OnError(err, "In ReceiveQueue().")
+	IfError("In ReceiveQueue().", err)
 	return msgs, err
 }
 
@@ -185,8 +176,7 @@ func (rabbit *RabbitMqClass) Send(exchange, routing_key, msg string) (err error)
 			ContentType: "text/plain",
 			Body:        []byte(msg),
 		})
-	// log.Println("In Send(): Sending msg", msg)
-	OnError(err, "In Send().")
+	IfError("In Send().", err)
 	return
 }
 
@@ -197,51 +187,3 @@ func (rabbit *RabbitMqClass) Close() {
 }
 
 // 面向对象编程： ====================================================  End
-
-// func Connect(user string, passwd string, url string, port string) (conn *amqp.Connection, err error) {
-// 	amqp_url := "amqp://" + user + ":" + passwd + "@" + url + ":" + port + "/"
-// 	conn, err = amqp.Dial(amqp_url)
-// 	// OnError(err, "Failed to connect to RabbitMQ")
-// 	// defer conn.Close()
-// 	return
-// }
-
-// func Send(conn *amqp.Connection, ch *amqp.Channel, topic string, routing_key string, msg string) error {
-// 	// bug: 每次开一个channel ，用完就会出错：Exception (504) Reason: "channel id space exhausted"
-// 	// ch, err := conn.Channel()
-// 	// OnError(err, "Failed to open a channel")
-// 	// defer ch.Close()
-// 	err := ch.Publish(
-// 		topic,       // exchange: "amq.topic"
-// 		routing_key, // routing key
-// 		false,       // mandatory
-// 		false,       // immediate
-// 		amqp.Publishing{
-// 			ContentType: "text/plain",
-// 			Body:        []byte(msg),
-// 		})
-// 	OnError(err, "Failed to publish a message")
-// 	log.Printf(" [x] Sent %s", msg)
-// 	return err
-// }
-
-// func bodyFrom(args []string) string {
-// 	var s string
-// 	if (len(args) < 3) || os.Args[2] == "" {
-// 		// s = "hello22"
-// 		s = `{"xx":["2022-05-03", "2022-04-04"], "yy":[[25,45,42,35], [31,23,44,67]]}`
-// 	} else {
-// 		s = strings.Join(args[2:], " ")
-// 	}
-// 	return s
-// }
-
-// func severityFrom(args []string) string {
-// 	var s string
-// 	if (len(args) < 2) || os.Args[1] == "" {
-// 		s = "echo"
-// 	} else {
-// 		s = os.Args[1]
-// 	}
-// 	return s
-// }
