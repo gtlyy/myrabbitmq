@@ -1,4 +1,4 @@
-module myrabbitmq
+module github.com/gtlyy/myrabbitmq
 
 go 1.23.0
 
